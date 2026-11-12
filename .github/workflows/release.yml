@@ -1,0 +1,41 @@
+name: release
+on:
+  push:
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: pytest
+  build:
+    needs: test
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: read version
+        id: version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+      - name: build release
+        run: |
+          chmod +x build.sh || true
+          ./build.sh
+      - name: upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ steps.version.outputs.version }}
+          path: dist/app-${{ steps.version.outputs.version }}.tar.gz
+
